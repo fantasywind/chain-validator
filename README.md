@@ -3,7 +3,7 @@ Chainable Object Types Validator
 
 ## Usage
 
-```
+```javascript
 // ES6
 import ChainValidator, {
   Types as T,
