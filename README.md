@@ -5,11 +5,11 @@ Chainable Object Types Validator
 
 ```javascript
 // ES6
-import ChainValidator, {
+import ChainableValidator, {
   Types as T,
-} from 'chain-validator';
+} from 'chainable-validator';
 
-const validator = new ChainValidator({
+const validator = new ChainableValidator({
   name: T.string.maxLen(10).minLen(4).isRequired,
   age: T.number.len(2).isRequired,
   birthday: T.date,

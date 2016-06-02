@@ -1,8 +1,8 @@
-import ChainValidator, {
+import ChainableValidator, {
   Types as T,
 } from '../src/validator.js';
 
-const validator = new ChainValidator({
+const validator = new ChainableValidator({
   name: T.string.maxLen(10).minLen(4).isRequired,
   age: T.number.len(2).isRequired,
   birthday: T.date,
