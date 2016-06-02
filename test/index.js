@@ -30,6 +30,10 @@ const data = {
   brand: Symbol('Apple Inc.'),
 };
 
+validator.on('error', (err) => {
+  console.log('onError', err);
+});
+
 if (validator.validate(data)) {
   console.log('Pass');
 } else {

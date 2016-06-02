@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 function getType(value) {
   if (Array.isArray(value)) {
     return 'array';
@@ -18,6 +20,20 @@ function getType(value) {
   return typeof value;
 }
 
+const RULE_TYPE = Symbol('RULE_TYPE');
+const RULE_MAX_LENGTH = Symbol('RULE_MAX_LENGTH');
+const RULE_MIN_LENGTH = Symbol('RULE_MIN_LENGTH');
+const RULE_LENGTH = Symbol('RULE_LENGTH');
+const RULE_REQUIRED = Symbol('RULE_REQUIRED');
+
+export const Rules = {
+  TYPE: RULE_TYPE,
+  MAX_LENGTH: RULE_MAX_LENGTH,
+  MIN_LENGTH: RULE_MIN_LENGTH,
+  LENGTH: RULE_LENGTH,
+  REQUIRED: RULE_REQUIRED,
+};
+
 export class CoreValidator {
   constructor() {
     this.validators = [];
@@ -36,7 +52,11 @@ export class CoreValidator {
     this.validators = [
       (prevResult, item) => {
         if (typeof item.value === 'undefined') {
-          return new Error(`${item.key} is required, but it undefined.`);
+          const err = new Error(`${item.key} is required, but it undefined.`);
+          err.key = item.key;
+          err.value = item.value;
+          err.type = RULE_REQUIRED;
+          return err;
         }
 
         return prevResult;
@@ -58,7 +78,12 @@ export class BasicType extends CoreValidator {
       }
 
       if (getType(item.value) !== type) {
-        return new Error(`Incorrect type on ${item.key}, should be ${type}`);
+        const err = new Error(`Incorrect type on ${item.key}, should be ${type}`);
+        err.key = item.key;
+        err.value = item.value;
+        err.type = RULE_TYPE;
+        err.rule = type;
+        return err;
       }
 
       return prevResult;
@@ -93,15 +118,21 @@ export class BasicType extends CoreValidator {
         return prevResult;
       }
 
+      const err = new Error(`Length not matched: ${item.key}, should be ${length}.`);
+      err.key = item.key;
+      err.value = item.value;
+      err.type = RULE_LENGTH;
+      err.rule = length;
+
       if (item.value % 1 === 0) {
         // Integer
         if (`${item.value}`.length !== length) {
-          return new Error(`Length not matched: ${item.key}, should be ${length}.`);
+          return err;
         }
       } else {
         // Float
         if (`${Math.floor(item.value)}`.length !== length) {
-          return new Error(`Length not matched: ${item.key}, should be ${length}.`);
+          return err;
         }
       }
 
@@ -122,7 +153,12 @@ export class BasicType extends CoreValidator {
       }
 
       if (!item.value.length || item.value.length !== length) {
-        return new Error(`Length not matched: ${item.key}, should be ${length}.`);
+        const err = new Error(`Length not matched: ${item.key}, should be ${length}.`);
+        err.key = item.key;
+        err.value = item.value;
+        err.type = RULE_LENGTH;
+        err.rule = length;
+        return err;
       }
 
       return prevResult;
@@ -141,15 +177,21 @@ export class BasicType extends CoreValidator {
         return prevResult;
       }
 
+      const err = new Error(`Length insufficient: ${item.key}, should be less than ${minLen}.`);
+      err.key = item.key;
+      err.value = item.value;
+      err.type = RULE_MIN_LENGTH;
+      err.rule = minLen;
+
       if (item.value % 1 === 0) {
         // Integer
         if (`${item.value}`.length < minLen) {
-          return new Error(`Length insufficient: ${item.key}, should be less than ${minLen}.`);
+          return err;
         }
       } else {
         // Float
         if (`${Math.floor(item.value)}`.length < minLen) {
-          return new Error(`Length insufficient: ${item.key}, should be more than ${minLen}.`);
+          return err;
         }
       }
 
@@ -170,7 +212,12 @@ export class BasicType extends CoreValidator {
       }
 
       if (!item.value.length || item.value.length < minLen) {
-        return new Error(`Length insufficient: ${item.key}, should be more than ${minLen}.`);
+        const err = new Error(`Length insufficient: ${item.key}, should be more than ${minLen}.`);
+        err.key = item.key;
+        err.value = item.value;
+        err.type = RULE_MIN_LENGTH;
+        err.rule = minLen;
+        return err;
       }
 
       return prevResult;
@@ -189,15 +236,21 @@ export class BasicType extends CoreValidator {
         return prevResult;
       }
 
+      const err = new Error(`Length exceeded: ${item.key}, should be less than ${maxLen}.`);
+      err.key = item.key;
+      err.value = item.value;
+      err.type = RULE_MAX_LENGTH;
+      err.rule = maxLen;
+
       if (item.value % 1 === 0) {
         // Integer
         if (`${item.value}`.length > maxLen) {
-          return new Error(`Length exceeded: ${item.key}, should be less than ${maxLen}.`);
+          return err;
         }
       } else {
         // Float
         if (`${Math.floor(item.value)}`.length > maxLen) {
-          return new Error(`Length exceeded: ${item.key}, should be less than ${maxLen}.`);
+          return err;
         }
       }
 
@@ -218,7 +271,12 @@ export class BasicType extends CoreValidator {
       }
 
       if (!item.value.length || item.value.length > maxLen) {
-        return new Error(`Length exceeded: ${item.key}, should be less than ${maxLen}.`);
+        const err = new Error(`Length exceeded: ${item.key}, should be less than ${maxLen}.`);
+        err.key = item.key;
+        err.value = item.value;
+        err.type = RULE_MAX_LENGTH;
+        err.rule = maxLen;
+        return err;
       }
 
       return prevResult;
@@ -228,8 +286,10 @@ export class BasicType extends CoreValidator {
   }
 }
 
-export class ChainValidator {
+export class ChainValidator extends EventEmitter {
   constructor(formula = {}) {
+    super();
+
     this.formulas = Object.keys(formula).map((key) => {
       const keyFormula = typeof formula[key] === 'function' ? formula[key]() : formula[key];
 
@@ -247,6 +307,7 @@ export class ChainValidator {
       const result = formula.validate(data[formula.key]);
 
       if (result instanceof Error) {
+        this.emit('error', result);
         console.warn(result.message);
         valid = false;
       }
