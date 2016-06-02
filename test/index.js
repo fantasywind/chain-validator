@@ -1,13 +1,6 @@
-# chain-validator
-Chainable Object Types Validator
-
-## Usage
-
-```
-// ES6
 import ChainValidator, {
   Types as T,
-} from 'chain-validator';
+} from '../src/validator.js';
 
 const validator = new ChainValidator({
   name: T.string.maxLen(10).minLen(4).isRequired,
@@ -18,31 +11,27 @@ const validator = new ChainValidator({
   liked: T.array,
   test: T.regex,
   brand: T.symbol,
+  optional: T.string.len(3),
 });
 
 const data = {
-  name: 'Chia Yu Pai',
-  age: 26,
+  name: 'Fooweee',
+  age: 20,
   birthday: new Date('1990/02/08'),
+  callback: () => {},
   info: {
-    bio: 'hello world',
+    bio: 'foobar',
   },
   liked: [
     'apple',
-    'linux',
+    'banana'
   ],
   test: /t/i,
   brand: Symbol('Apple Inc.'),
 };
 
 if (validator.validate(data)) {
-  // Pass
+  console.log('Pass');
 } else {
-  // Invalid
+  console.log('Invalid');
 }
-```
-
-## To-Do
-
-* shape check
-* unit test case
