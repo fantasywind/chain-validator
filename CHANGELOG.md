@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Add number greedy option
+- Refactor reduce to single object
+
 ## 0.1.1
 
 - Add EventEmitter for catch error

@@ -20,6 +20,8 @@ function getType(value) {
   return typeof value;
 }
 
+const VALID = Symbol('VALID');
+
 const RULE_TYPE = Symbol('RULE_TYPE');
 const RULE_MAX_LENGTH = Symbol('RULE_MAX_LENGTH');
 const RULE_MIN_LENGTH = Symbol('RULE_MIN_LENGTH');
@@ -38,28 +40,33 @@ export class CoreValidator {
   constructor() {
     this.validators = [];
 
-    this.isRequired = this.setRequired.bind(this);
+    Object.defineProperty(this, 'isRequired', {
+      get: () => this.setRequired(),
+    });
   }
 
   validate(key, value) {
-    return this.validators.reduce((prevResult, validator) => validator(prevResult, {
+    return this.validators.reduce((prevResult, validator) => validator(prevResult), {
       key,
       value,
-    }), null);
+      state: VALID,
+    });
   }
 
   setRequired() {
     this.validators = [
-      (prevResult, item) => {
+      (item) => {
         if (typeof item.value === 'undefined') {
           const err = new Error(`${item.key} is required, but it undefined.`);
           err.key = item.key;
           err.value = item.value;
           err.type = RULE_REQUIRED;
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
 
-        return prevResult;
+        return item;
       },
       ...this.validators,
     ];
@@ -72,9 +79,9 @@ export class BasicType extends CoreValidator {
   constructor(type) {
     super();
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       if (getType(item.value) !== type) {
@@ -83,10 +90,12 @@ export class BasicType extends CoreValidator {
         err.value = item.value;
         err.type = RULE_TYPE;
         err.rule = type;
-        return err;
+        return Object.assign({}, item, {
+          state: err,
+        });
       }
 
-      return prevResult;
+      return item;
     });
 
     switch (type) {
@@ -94,6 +103,10 @@ export class BasicType extends CoreValidator {
         this.maxLen = this.setNumericMaxLen.bind(this);
         this.minLen = this.setNumericMinLen.bind(this);
         this.len = this.setNumericLen.bind(this);
+
+        Object.defineProperty(this, 'greedy', {
+          get: () => this.setNumericGreedy(),
+        });
         break;
 
       case 'string':
@@ -108,14 +121,31 @@ export class BasicType extends CoreValidator {
     }
   }
 
+  setNumericGreedy() {
+    this.validators = [
+      (item) => {
+        if (!isNaN(item.value)) {
+          return Object.assign({}, item, {
+            value: parseFloat(item.value),
+          });
+        }
+
+        return item;
+      },
+      ...this.validators,
+    ];
+
+    return this;
+  }
+
   setNumericLen(length) {
     if (typeof length !== 'number' || length % 1 !== 0) {
       throw new Error('lengthgth should be integer.');
     }
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       const err = new Error(`Length not matched: ${item.key}, should be ${length}.`);
@@ -127,16 +157,20 @@ export class BasicType extends CoreValidator {
       if (item.value % 1 === 0) {
         // Integer
         if (`${item.value}`.length !== length) {
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
       } else {
         // Float
         if (`${Math.floor(item.value)}`.length !== length) {
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
       }
 
-      return prevResult;
+      return item;
     });
 
     return this;
@@ -147,9 +181,9 @@ export class BasicType extends CoreValidator {
       throw new Error('lengthgth should be integer.');
     }
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       if (!item.value.length || item.value.length !== length) {
@@ -158,10 +192,12 @@ export class BasicType extends CoreValidator {
         err.value = item.value;
         err.type = RULE_LENGTH;
         err.rule = length;
-        return err;
+        return Object.assign({}, item, {
+          state: err,
+        });
       }
 
-      return prevResult;
+      return item;
     });
 
     return this;
@@ -172,9 +208,9 @@ export class BasicType extends CoreValidator {
       throw new Error('minLength should be integer.');
     }
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       const err = new Error(`Length insufficient: ${item.key}, should be less than ${minLen}.`);
@@ -186,16 +222,20 @@ export class BasicType extends CoreValidator {
       if (item.value % 1 === 0) {
         // Integer
         if (`${item.value}`.length < minLen) {
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
       } else {
         // Float
         if (`${Math.floor(item.value)}`.length < minLen) {
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
       }
 
-      return prevResult;
+      return item;
     });
 
     return this;
@@ -206,9 +246,9 @@ export class BasicType extends CoreValidator {
       throw new Error('minLength should be integer.');
     }
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       if (!item.value.length || item.value.length < minLen) {
@@ -217,10 +257,12 @@ export class BasicType extends CoreValidator {
         err.value = item.value;
         err.type = RULE_MIN_LENGTH;
         err.rule = minLen;
-        return err;
+        return Object.assign({}, item, {
+          state: err,
+        });
       }
 
-      return prevResult;
+      return item;
     });
 
     return this;
@@ -231,9 +273,9 @@ export class BasicType extends CoreValidator {
       throw new Error('maxLength should be integer.');
     }
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       const err = new Error(`Length exceeded: ${item.key}, should be less than ${maxLen}.`);
@@ -245,16 +287,20 @@ export class BasicType extends CoreValidator {
       if (item.value % 1 === 0) {
         // Integer
         if (`${item.value}`.length > maxLen) {
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
       } else {
         // Float
         if (`${Math.floor(item.value)}`.length > maxLen) {
-          return err;
+          return Object.assign({}, item, {
+            state: err,
+          });
         }
       }
 
-      return prevResult;
+      return item;
     });
 
     return this;
@@ -265,9 +311,9 @@ export class BasicType extends CoreValidator {
       throw new Error('maxLength should be integer.');
     }
 
-    this.validators.push((prevResult, item) => {
-      if (prevResult instanceof Error || typeof item.value === 'undefined') {
-        return prevResult;
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
       }
 
       if (!item.value.length || item.value.length > maxLen) {
@@ -276,10 +322,12 @@ export class BasicType extends CoreValidator {
         err.value = item.value;
         err.type = RULE_MAX_LENGTH;
         err.rule = maxLen;
-        return err;
+        return Object.assign({}, item, {
+          state: err,
+        });
       }
 
-      return prevResult;
+      return item;
     });
 
     return this;
@@ -290,14 +338,10 @@ export class ChainValidator extends EventEmitter {
   constructor(formula = {}) {
     super();
 
-    this.formulas = Object.keys(formula).map((key) => {
-      const keyFormula = typeof formula[key] === 'function' ? formula[key]() : formula[key];
-
-      return {
-        validate: keyFormula.validate.bind(keyFormula, key),
-        key,
-      };
-    });
+    this.formulas = Object.keys(formula).map((key) => ({
+      validate: formula[key].validate.bind(formula[key], key),
+      key,
+    }));
   }
 
   validate(data = {}) {
@@ -306,9 +350,9 @@ export class ChainValidator extends EventEmitter {
     this.formulas.forEach((formula) => {
       const result = formula.validate(data[formula.key]);
 
-      if (result instanceof Error) {
-        this.emit('error', result);
-        console.warn(result.message);
+      if (result.state instanceof Error) {
+        this.emit('error', result.state);
+        console.warn(result.state.message);
         valid = false;
       }
     });
