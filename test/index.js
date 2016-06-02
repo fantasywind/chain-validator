@@ -4,7 +4,7 @@ import ChainableValidator, {
 
 const validator = new ChainableValidator({
   name: T.string.maxLen(10).minLen(4).isRequired,
-  age: T.number.len(2).isRequired.greedy,
+  age: T.float.decimal(5).isRequired.greedy,
   birthday: T.date,
   callback: T.function,
   info: T.object,
@@ -16,7 +16,7 @@ const validator = new ChainableValidator({
 
 const data = {
   name: 'Fooweee',
-  age: '20',
+  age: '20.17978',
   birthday: new Date('1990/02/08'),
   callback: () => {},
   info: {

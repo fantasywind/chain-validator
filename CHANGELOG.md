@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Add ExtendNumericType for integer and float
+- decimal
+
 ## 0.1.2
 
 - Add number greedy option

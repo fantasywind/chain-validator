@@ -27,6 +27,7 @@ const RULE_MAX_LENGTH = Symbol('RULE_MAX_LENGTH');
 const RULE_MIN_LENGTH = Symbol('RULE_MIN_LENGTH');
 const RULE_LENGTH = Symbol('RULE_LENGTH');
 const RULE_REQUIRED = Symbol('RULE_REQUIRED');
+const RULE_DECIMAL = Symbol('RULE_DECIMAL');
 
 export const Rules = {
   TYPE: RULE_TYPE,
@@ -34,9 +35,10 @@ export const Rules = {
   MIN_LENGTH: RULE_MIN_LENGTH,
   LENGTH: RULE_LENGTH,
   REQUIRED: RULE_REQUIRED,
+  DECIMAL: RULE_DECIMAL,
 };
 
-export class CoreValidator {
+class CoreValidator {
   constructor() {
     this.validators = [];
 
@@ -75,7 +77,7 @@ export class CoreValidator {
   }
 }
 
-export class BasicType extends CoreValidator {
+class BasicType extends CoreValidator {
   constructor(type) {
     super();
 
@@ -334,6 +336,94 @@ export class BasicType extends CoreValidator {
   }
 }
 
+class ExtendNumericType extends BasicType {
+  constructor(type) {
+    super('number');
+
+    switch (type) {
+      case 'float':
+      case 'double':
+        this.validators.push(this.validFloat.bind(this));
+
+        this.decimal = this.setDecimal.bind(this);
+        break;
+
+      case 'integer':
+      default:
+        this.validators.push(this.validInteger.bind(this));
+        break;
+    }
+  }
+
+  setDecimal(decimal) {
+    if (typeof decimal !== 'number' || decimal % 1 !== 0) {
+      throw new Error('decimal should be integer.');
+    }
+
+    this.validators.push((item) => {
+      if (item.state instanceof Error || typeof item.value === 'undefined') {
+        return item;
+      }
+
+      const err = new Error(`Length exceeded: ${item.key}, should be less than ${decimal}.`);
+      err.key = item.key;
+      err.value = item.value;
+      err.type = RULE_DECIMAL;
+      err.rule = decimal;
+
+      `${item.value}`.match(/\.(\d+)$/);
+
+      if (RegExp.$1.length > decimal) {
+        return Object.assign({}, item, {
+          state: err,
+        });
+      }
+
+      return item;
+    });
+
+    return this;
+  }
+
+  validFloat(item) {
+    if (item.state instanceof Error || typeof item.value === 'undefined') {
+      return item;
+    }
+
+    if (item.value % 1 === 0) {
+      const err = new Error(`Incorrect type on ${item.key}, should be float`);
+      err.key = item.key;
+      err.value = item.value;
+      err.type = RULE_TYPE;
+      err.rule = 'float';
+      return Object.assign({}, item, {
+        state: err,
+      });
+    }
+
+    return item;
+  }
+
+  validInteger(item) {
+    if (item.state instanceof Error || typeof item.value === 'undefined') {
+      return item;
+    }
+
+    if (item.value % 1 !== 0) {
+      const err = new Error(`Incorrect type on ${item.key}, should be integer`);
+      err.key = item.key;
+      err.value = item.value;
+      err.type = RULE_TYPE;
+      err.rule = 'integer';
+      return Object.assign({}, item, {
+        state: err,
+      });
+    }
+
+    return item;
+  }
+}
+
 export class ChainValidator extends EventEmitter {
   constructor(formula = {}) {
     super();
@@ -363,6 +453,7 @@ export class ChainValidator extends EventEmitter {
 
 export const Types = {};
 
+// Basic Types
 Object.defineProperty(Types, 'string', {
   get: () => new BasicType('string'),
 });
@@ -389,6 +480,17 @@ Object.defineProperty(Types, 'date', {
 });
 Object.defineProperty(Types, 'null', {
   get: () => new BasicType('null'),
+});
+
+// Extend Numeric Type
+Object.defineProperty(Types, 'integer', {
+  get: () => new ExtendNumericType('integer'),
+});
+Object.defineProperty(Types, 'float', {
+  get: () => new ExtendNumericType('float'),
+});
+Object.defineProperty(Types, 'double', {
+  get: () => new ExtendNumericType('double'),
 });
 
 ChainValidator.Types = Types;
