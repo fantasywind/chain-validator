@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Add whole object in error message
+- Add toggle console log options
+
 ## 0.1.3
 
 - Add ExtendNumericType for integer and float

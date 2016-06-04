@@ -425,8 +425,12 @@ class ExtendNumericType extends BasicType {
 }
 
 export class ChainValidator extends EventEmitter {
-  constructor(formula = {}) {
+  constructor(formula = {}, options = {
+    log: true,
+  }) {
     super();
+
+    this.logActive = options.log;
 
     this.formulas = Object.keys(formula).map((key) => ({
       validate: formula[key].validate.bind(formula[key], key),
@@ -441,8 +445,12 @@ export class ChainValidator extends EventEmitter {
       const result = formula.validate(data[formula.key]);
 
       if (result.state instanceof Error) {
-        this.emit('error', result.state);
-        console.warn(result.state.message);
+        this.emit('error', Object.assign({}, result.state, {
+          data,
+        }));
+
+        if (this.logActive) console.warn(result.state.message);
+
         valid = false;
       }
     });
